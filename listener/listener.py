@@ -16,10 +16,9 @@ if not WEBAPP_URL:
 # Ensure the URL ends with the correct endpoint
 api_endpoint = f"{WEBAPP_URL.rstrip('/')}/api/messages"
 
-# Keep track of messages we've already printed
-printed_messages = set()
-# Store the messages fetched in the last poll to compare with the new poll
-last_fetched_messages = []
+# Keep track of message timestamps we've already printed
+# Using timestamps as unique identifiers, assuming they are sufficiently unique
+printed_message_timestamps = set()
 
 print(f"Listener started. Polling {api_endpoint} every {POLL_INTERVAL} seconds...")
 
@@ -28,33 +27,48 @@ while True:
         response = requests.get(api_endpoint, timeout=10)
         response.raise_for_status() # Raise an exception for bad status codes
 
-        current_messages = response.json() # Messages are sent oldest to newest
+        # Expecting a list of dictionaries now
+        current_message_dicts = response.json()
 
-        # Find messages that are new since the last poll
-        # This simple logic assumes message order is consistent and messages aren't deleted mid-list
         new_messages_to_print = []
-        for msg in current_messages:
-            if msg not in printed_messages:
-                 new_messages_to_print.append(msg)
-                 printed_messages.add(msg) # Mark as printed
+        current_timestamps_in_response = set()
 
-        # Since the deque on the server has a maxlen, old messages disappear.
-        # We need to clean up our `printed_messages` set to avoid it growing indefinitely
-        # Keep only the messages that are currently present in the fetched list
-        current_messages_set = set(current_messages)
-        printed_messages.intersection_update(current_messages_set)
+        for msg_dict in current_message_dicts:
+            # Use timestamp as the unique identifier
+            timestamp = msg_dict.get('timestamp')
+            if not timestamp:
+                # Skip message if it somehow lacks a timestamp (shouldn't happen)
+                print(f"Warning: Received message without timestamp: {msg_dict}")
+                continue
 
+            current_timestamps_in_response.add(timestamp)
+
+            if timestamp not in printed_message_timestamps:
+                new_messages_to_print.append(msg_dict)
+                printed_message_timestamps.add(timestamp) # Mark timestamp as printed
+
+        # Clean up old timestamps from our printed set
+        printed_message_timestamps.intersection_update(current_timestamps_in_response)
 
         if new_messages_to_print:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"--- {timestamp} ---")
-            for msg in new_messages_to_print:
-                 print(f"  New: {msg}")
-        # else:
-            # Optional: print a message if no new messages are found
-            # print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] No new messages.")
+            print(f"--- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+            for msg_data in new_messages_to_print:
+                # Format the output nicely
+                msg_type = msg_data.get('type', 'N/A').upper()
+                msg_text = msg_data.get('text', '')
+                location = msg_data.get('location')
+                original_timestamp = msg_data.get('timestamp', 'N/A') # Display original post time
 
-        last_fetched_messages = current_messages
+                print(f" Type: {msg_type}")
+                print(f" Text: {msg_text}")
+                if location:
+                    lat = location.get('lat', 'N/A')
+                    lon = location.get('lon', 'N/A')
+                    alt = location.get('alt') # Might be None
+                    alt_str = f", Alt: {alt:.2f}m" if alt is not None else ""
+                    print(f" Location: Lat {lat:.5f}, Lon {lon:.5f}{alt_str}")
+                print(f" Posted At: {original_timestamp}")
+                print("-" * 10) # Separator for multiple new messages
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching messages: {e}")
