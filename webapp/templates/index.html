@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Simple Whiteboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; max-width: 600px; margin: auto; padding: 2em; }
+        label, input, button { display: block; margin-bottom: 0.5em; }
+        input[type="text"] { width: 100%; padding: 0.5em; box-sizing: border-box; }
+        button { padding: 0.7em 1.5em; cursor: pointer; }
+        .messages { margin-top: 2em; border-top: 1px solid #ccc; padding-top: 1em; }
+        .message-item { background-color: #f9f9f9; border: 1px solid #eee; padding: 0.5em; margin-bottom: 0.5em; border-radius: 4px;}
+    </style>
+</head>
+<body>
+    <h1>Send a Message</h1>
+
+    <form method="post">
+        <label for="message">New Message:</label>
+        <input type="text" id="message" name="message" required>
+        <button type="submit">Post Message</button>
+    </form>
+
+    <div class="messages">
+        <h2>Latest Messages:</h2>
+        {% if messages %}
+            {% for msg in messages %}
+                <div class="message-item">{{ msg }}</div>
+            {% else %}
+                <p>No messages yet.</p>
+            {% endfor %}
+        {% else %}
+            <p>No messages yet.</p>
+        {% endif %}
+    </div>
+</body>
+</html> 
